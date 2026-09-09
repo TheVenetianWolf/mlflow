@@ -1,18 +1,10 @@
-# OS packages installed in the Konflux runtime image (Dockerfile.konflux
-# final stage). The python CI job live-dnf installs this list except
-# python3.12 / python3.12-pip (setup-python provides those).
+# OS packages for the Konflux-pin python CI job only (live DNF).
+# python3.12 / python3.12-pip are skipped; setup-python provides those.
 #
-# UBI packages come from requirements/ubi.repo (BaseOS, AppStream,
-# CodeReady Builder). re2 and thrift are the EPEL 9 exception so AIPCC
-# pyarrow==20.0.0 can load (libthrift-0.15.0.so and libre2). See
-# requirements/epel.repo. snappy (libsnappy.so.1) is the CentOS Stream 9
-# BaseOS exception; UBI omits it. See requirements/centos-stream.repo
-# (includepkgs=snappy).
-#
-# Keep requirements/rpms.in.yaml packages in sync with this file.
-# After changing it, regenerate:
-#   rpm-lockfile-prototype --containerfile Dockerfile.konflux \
-#     --outfile requirements/rpms.lock.yaml requirements/rpms.in.yaml
+# Not used by Dockerfile.konflux. The image stays on UBI packages from
+# requirements/rpms.in.yaml. re2 and thrift come from EPEL 9 so AIPCC
+# pyarrow==20.0.0 can load in CI; snappy comes from CentOS Stream 9 BaseOS
+# (UBI omits it). The workflow enables those repos at job time.
 
 freetype
 libgomp

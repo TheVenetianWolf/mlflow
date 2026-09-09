@@ -83,14 +83,20 @@ jobs:
         run: git config --global --add safe.directory "$(pwd)"
       - name: Install runtime RPMs
         run: |
-          # Same package set as Dockerfile.konflux / rpms.in.yaml
-          # (requirements/konflux-runtime-rpms.txt). Live DNF for unit-test
-          # CI; hermetic Konflux still prefetches rpms.lock.yaml.
-          # python3.12 comes from setup-python.
-          rpm --import requirements/RPM-GPG-KEY-EPEL-9 \
-            requirements/RPM-GPG-KEY-centosofficial
-          cp requirements/epel.repo /etc/yum.repos.d/epel.repo
-          cp requirements/centos-stream.repo /etc/yum.repos.d/centos-stream.repo
+          # Live DNF for unit-test CI only. AIPCC pyarrow needs EPEL
+          # thrift/re2 and Stream snappy. Not image RPMs; Dockerfile.konflux
+          # stays on UBI packages. python3.12 comes from setup-python.
+          dnf install -y --setopt=install_weak_deps=0 --setopt=tsflags=nodocs \
+            https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
+          cat > /etc/yum.repos.d/centos-stream-snappy.repo <<'EOF'
+          [centos-stream-9-baseos]
+          name = CentOS Stream 9 - BaseOS - $basearch
+          baseurl = https://mirror.stream.centos.org/9-stream/BaseOS/$basearch/os/
+          enabled = 1
+          gpgcheck = 1
+          gpgkey = https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official-SHA256
+          includepkgs = snappy
+          EOF
           rpms=()
           while IFS= read -r line || [ -n "$line" ]; do
             case "$line" in
@@ -148,9 +154,9 @@ jobs:
           # `-I` is used to avoid importing modules from user-specific site-packages
           # that might conflict with the built-in modules (e.g. `types`).
           uv run --python .venv/bin/python --no-sync python -I tests/check_mlflow_lazily_imports_ml_packages.py
-          # Native wheels shipped in the image. Runtime RPMs match
-          # Dockerfile.konflux (re2/thrift/snappy included). Import
-          # pyarrow.parquet so a parquet-only soname miss fails here.
+          # Native wheels from the Konflux pin overlay. CI installs extra
+          # sonames (EPEL re2/thrift, Stream snappy) that the image does not.
+          # Import pyarrow.parquet so a parquet-only soname miss fails here.
           uv run --python .venv/bin/python --no-sync python -I -c "import numpy, pandas, sklearn, pyarrow, pyarrow.parquet, PIL, matplotlib"
       - name: Run tests
         env:
