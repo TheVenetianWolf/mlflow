@@ -210,7 +210,10 @@ jobs:
           # Same native pins the python job overlays, loaded with the image
           # RPM set only (no CI EPEL/Stream extras). pyarrow.parquet so a
           # parquet-only soname miss fails here.
-          docker run --rm --entrypoint python3.12 mlflow-konflux:ci -I -c \
+          # No -I: image pip installs to /usr/local, and isolated mode only
+          # searches the RPM prefix (/usr/lib64). The python job still uses
+          # -I because that interpreter is a venv.
+          docker run --rm --entrypoint python3.12 mlflow-konflux:ci -c \
             "import numpy, pandas, sklearn, pyarrow, pyarrow.parquet, PIL, matplotlib"
 
   database:
