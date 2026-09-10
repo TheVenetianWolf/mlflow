@@ -153,11 +153,10 @@ jobs:
         run: |
           # `-I` is used to avoid importing modules from user-specific site-packages
           # that might conflict with the built-in modules (e.g. `types`).
+          # Native AIPCC wheels (pyarrow, PIL, …) are checked in
+          # konflux-image-import-check against Dockerfile.konflux, not here.
+          # This job's extra RPMs would hide a missing soname in the image.
           uv run --python .venv/bin/python --no-sync python -I tests/check_mlflow_lazily_imports_ml_packages.py
-          # Native wheels from the Konflux pin overlay. CI installs extra
-          # sonames (EPEL re2/thrift, Stream snappy) that the image does not.
-          # Import pyarrow.parquet so a parquet-only soname miss fails here.
-          uv run --python .venv/bin/python --no-sync python -I -c "import numpy, pandas, sklearn, pyarrow, pyarrow.parquet, PIL, matplotlib"
       - name: Run tests
         env:
           SPLITS: ${{ matrix.splits }}
@@ -193,6 +192,26 @@ jobs:
           )
           uv run --python .venv/bin/python --no-sync pytest --serial=exclude -n auto --dist loadscope "${COMMON_ARGS[@]}"
           uv run --python .venv/bin/python --no-sync pytest --serial=only "${COMMON_ARGS[@]}"
+
+  konflux-image-import-check:
+    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: Build runtime image
+        run: docker build -f Dockerfile.konflux -t mlflow-konflux:ci .
+      - name: Import AIPCC wheels in the image
+        run: |
+          # Same native pins the python job overlays, loaded with the image
+          # RPM set only (no CI EPEL/Stream extras). pyarrow.parquet so a
+          # parquet-only soname miss fails here.
+          docker run --rm --entrypoint python3.12 mlflow-konflux:ci -I -c \
+            "import numpy, pandas, sklearn, pyarrow, pyarrow.parquet, PIL, matplotlib"
 
   database:
     if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
