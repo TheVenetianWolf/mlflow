@@ -207,14 +207,14 @@ jobs:
         run: docker build -f Dockerfile.konflux -t mlflow-konflux:ci .
       - name: Import AIPCC wheels in the image
         run: |
-          # Same native pins the python job overlays, loaded with the image
-          # RPM set only (no CI EPEL/Stream extras). pyarrow.parquet so a
-          # parquet-only soname miss fails here.
+          # Native pins loaded with the image RPM set only (no CI
+          # EPEL/Stream extras). Skip sklearn/pyarrow: AIPCC pyarrow
+          # needs libthrift from EPEL, which this image does not ship.
           # No -I: image pip installs to /usr/local, and isolated mode only
           # searches the RPM prefix (/usr/lib64). The python job still uses
           # -I because that interpreter is a venv.
           docker run --rm --entrypoint python3.12 mlflow-konflux:ci -c \
-            "import numpy, pandas, sklearn, pyarrow, pyarrow.parquet, PIL, matplotlib"
+            "import numpy, pandas, PIL, matplotlib"
 
   database:
     if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
